@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>HishabAI — Shop Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html,body,#root{height:100%}
+  body{margin:0;background:#FBF7EF}
+  input{font-size:16px}            /* stops iOS zoom on focus */
+  *{-webkit-tap-highlight-color:transparent}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ---------- palette ---------- */
+const C = {
+  oxblood:"#7A1F2B", oxbloodDark:"#5E1621", ink:"#241C18", paper:"#FBF7EF",
+  card:"#FFFFFF", brass:"#C08A2D", brassSoft:"#E7D3A1", line:"#E7DFD1",
+  muted:"#7C7267", good:"#2F6B4F", bad:"#9A2A2A",
+};
+const today = () => new Date().toISOString().slice(0,10);
+const money = (n) => "৳" + (Number(n)||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+
+/* ---------- inline icons (no npm needed) ---------- */
+function Icon({ name, size=22, color="currentColor" }) {
+  const P = {
+    calculator:<><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8" y2="11"/><line x1="12" y1="11" x2="12" y2="11"/><line x1="16" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="8" y2="15"/><line x1="12" y1="15" x2="12" y2="15"/><line x1="16" y1="15" x2="16" y2="18"/></>,
+    laptop:<><rect x="3" y="5" width="18" height="12" rx="1"/><line x1="2" y1="20" x2="22" y2="20"/></>,
+    table:<><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="4" x2="9" y2="20"/></>,
+    trending:<><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></>,
+    pen:<><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
+    manager:<><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></>,
+    cart:<><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.5 13h11l2-8H6"/></>,
+    boxes:<><path d="M12 3l8 4-8 4-8-4 8-4Z"/><path d="M4 7v6l8 4 8-4V7"/><line x1="12" y1="11" x2="12" y2="21"/></>,
+    wallet:<><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="13" r="1"/></>,
+    arrowdown:<><circle cx="12" cy="12" r="9"/><polyline points="8 11 12 15 16 11"/></>,
+    arrowup:<><circle cx="12" cy="12" r="9"/><polyline points="8 13 12 9 16 13"/></>,
+    scale:<><line x1="12" y1="3" x2="12" y2="21"/><path d="M5 8h14"/><path d="M5 8l-2.5 6a3 3 0 0 0 5 0Z"/><path d="M19 8l-2.5 6a3 3 0 0 0 5 0Z"/></>,
+    search:<><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></>,
+    menu:<><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>,
+    mic:<><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/></>,
+    micoff:<><line x1="3" y1="3" x2="21" y2="21"/><path d="M9 9v2a3 3 0 0 0 4.5 2.6"/><path d="M15 10V6a3 3 0 0 0-5.6-1.5"/><path d="M5 11a7 7 0 0 0 10.3 4.7"/><line x1="12" y1="18" x2="12" y2="21"/></>,
+    save:<><path d="M5 3h11l3 3v15H5Z"/><path d="M8 3v6h7V3"/><rect x="8" y="13" width="8" height="5"/></>,
+    download:<><path d="M12 3v12"/><polyline points="7 11 12 16 17 11"/><path d="M5 21h14"/></>,
+    x:<><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></>,
+    back:<><polyline points="15 6 9 12 15 18"/></>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{P[name]}</svg>
+  );
+}
+
+/* ---------- speech ---------- */
+function useSpeech() {
+  const recRef = useRef(null);
+  const [listeningField, setListeningField] = useState(null);
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const supported = !!SR;
+  const listen = useCallback((fieldId, onText) => {
+    if (!SR) return;
+    try { if (recRef.current) recRef.current.abort(); } catch(e){}
+    const rec = new SR();
+    rec.lang = "en-US";               // change to "bn-BD" for Bengali dictation
+    rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onresult = (e) => onText(e.results[0][0].transcript);
+    rec.onend = () => setListeningField(null);
+    rec.onerror = () => setListeningField(null);
+    recRef.current = rec; setListeningField(fieldId); rec.start();
+  }, [SR]);
+  const stop = useCallback(() => { try{recRef.current&&recRef.current.stop();}catch(e){} setListeningField(null); }, []);
+  return { supported, listen, stop, listeningField };
+}
+
+/* ---------- mic field ---------- */
+function Field({ id, label, value, onChange, numeric, speech, placeholder }) {
+  const listening = speech.listeningField === id;
+  const setFromVoice = (t) => {
+    if (numeric) { const m = t.replace(/[, ]/g,"").match(/-?\d+(\.\d+)?/); onChange(m?m[0]:t.trim()); }
+    else onChange(t.trim());
+  };
+  return (
+    <label style={{display:"block",marginBottom:14}}>
+      <span style={{fontSize:13,fontWeight:600,color:C.ink}}>{label}</span>
+      <div className="flex items-stretch mt-1" style={{gap:8}}>
+        <input value={value} inputMode={numeric?"decimal":"text"}
+          placeholder={placeholder||(listening?"Listening…":"")}
+          onChange={(e)=>onChange(e.target.value)}
+          className="flex-1 rounded-lg px-3 py-2 outline-none"
+          style={{border:`1px solid ${listening?C.brass:C.line}`,background:listening?"#FFFBF0":"#fff",color:C.ink}} />
+        <button type="button"
+          onClick={()=> listening?speech.stop():speech.listen(id,setFromVoice)}
+          disabled={!speech.supported}
+          title={speech.supported?"Speak":"Voice not supported in this browser"}
+          className="rounded-lg px-3 flex items-center justify-center"
+          style={{background:listening?C.oxblood:"#fff",border:`1px solid ${listening?C.oxblood:C.line}`,
+                  color:listening?"#fff":(speech.supported?C.oxblood:C.muted),opacity:speech.supported?1:.5}}>
+          <Icon name={speech.supported?"mic":"micoff"} size={18} />
+        </button>
+      </div>
+    </label>
+  );
+}
+
+/* ---------- ui bits ---------- */
+function PrimaryBtn({children,onClick,style}) {
+  return <button onClick={onClick} className="w-full rounded-xl py-3 font-semibold flex items-center justify-center"
+    style={{background:C.oxblood,color:"#fff",gap:8,...style}}>{children}</button>;
+}
+function Card({children,style}) {
+  return <div className="rounded-2xl p-4" style={{background:C.card,border:`1px solid ${C.line}`,boxShadow:"0 1px 2px rgba(0,0,0,.03)",...style}}>{children}</div>;
+}
+const hBtn = {background:"rgba(255,255,255,.14)",border:"none",color:"#fff",width:38,height:38,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"};
+const td = {padding:"8px 10px",borderBottom:`1px solid ${C.line}`,color:C.ink};
+
+/* ---------- ledger form ---------- */
+function LedgerForm({ priceLabel, totalLabel, accent, onSave, speech }) {
+  const [pid,setPid]=useState(""),[pname,setPname]=useState(""),[qty,setQty]=useState("");
+  const [price,setPrice]=useState(""),[total,setTotal]=useState(""),[manual,setManual]=useState(false);
+  useEffect(()=>{ if(!manual){ const q=parseFloat(qty),p=parseFloat(price);
+    setTotal(!isNaN(q)&&!isNaN(p)?String(q*p):""); } },[qty,price,manual]);
+  const save=()=>{
+    if(!pid&&!pname){alert("Add a Product ID or Product Name first.");return;}
+    onSave({date:today(),productId:pid,productName:pname,quantity:Number(qty)||0,price:Number(price)||0,total:Number(total)||0});
+    setPid("");setPname("");setQty("");setPrice("");setTotal("");setManual(false);
+  };
+  return (
+    <div>
+      <Field id="pid" label="Product ID" value={pid} onChange={setPid} speech={speech} />
+      <Field id="pname" label="Product Name" value={pname} onChange={setPname} speech={speech} />
+      <Field id="qty" label="Quantity" numeric value={qty} onChange={setQty} speech={speech} />
+      <Field id="price" label={priceLabel} numeric value={price} onChange={setPrice} speech={speech} />
+      <Field id="total" label={totalLabel+" (auto — editable)"} numeric value={total}
+        onChange={(v)=>{setManual(true);setTotal(v);}} speech={speech} />
+      <PrimaryBtn onClick={save} style={{background:accent}}><Icon name="save" size={18}/> Save entry</PrimaryBtn>
+    </div>
+  );
+}
+function ExpenseForm({onSave,speech}) {
+  const [type,setType]=useState(""),[total,setTotal]=useState("");
+  const save=()=>{ if(!type){alert("Add an expense type first.");return;}
+    onSave({date:today(),type,total:Number(total)||0}); setType("");setTotal(""); };
+  return (<div>
+    <Field id="etype" label="Type of Expense" value={type} onChange={setType} speech={speech} />
+    <Field id="etotal" label="Total Expense" numeric value={total} onChange={setTotal} speech={speech} />
+    <PrimaryBtn onClick={save} style={{background:C.oxblood}}><Icon name="save" size={18}/> Save expense</PrimaryBtn>
+  </div>);
+}
+function RecordsTable({rows,cols}) {
+  if(!rows.length) return <p style={{color:C.muted,fontSize:14,marginTop:12}}>No entries yet. Saved entries appear here, newest first.</p>;
+  return (<div className="overflow-x-auto mt-3">
+    <table className="w-full" style={{borderCollapse:"collapse",fontSize:13}}>
+      <thead><tr>{cols.map(c=><th key={c.key} style={{textAlign:"left",padding:"8px 10px",color:C.muted,borderBottom:`1px solid ${C.line}`,fontWeight:600}}>{c.label}</th>)}</tr></thead>
+      <tbody>{[...rows].reverse().map((r,i)=><tr key={i}>{cols.map(c=><td key={c.key} style={td}>{c.fmt?c.fmt(r[c.key]):r[c.key]}</td>)}</tr>)}</tbody>
+    </table></div>);
+}
+
+/* ---------- persistence (localStorage) ---------- */
+const EMPTY={sales:[],inventories:[],receivables:[],payables:[],expenses:[],profitLog:[]};
+const load=(k,f)=>{ try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;} };
+
+/* ---------- last-cost inventory valuation ---------- */
+function buildStock(data){
+  // qty in/out per product
+  const m={};
+  const add=(arr,dir)=>arr.forEach(r=>{
+    const id=r.productId||"?",name=r.productName||"",key=id+"|"+name;
+    if(!m[key])m[key]={id,name,in:0,out:0};
+    m[key][dir]+=Number(r.quantity)||0;
+  });
+  add(data.inventories,"in"); add(data.payables,"in");
+  add(data.sales,"out");      add(data.receivables,"out");
+  // last cost price per product: newest by date, then latest entry
+  const cost={};
+  let seq=0;
+  [...data.inventories,...data.payables].forEach(r=>{
+    const key=(r.productId||"?")+"|"+(r.productName||"");
+    const cur=cost[key];
+    const rec={price:Number(r.price)||0,date:r.date||"",seq:seq++};
+    if(!cur||rec.date>cur.date||(rec.date===cur.date&&rec.seq>cur.seq)) cost[key]=rec;
+  });
+  return Object.values(m).map(r=>{
+    const key=r.id+"|"+r.name;
+    const current=r.in-r.out;
+    const qtyForValue=Math.max(current,0);          // floor at 0
+    const lastCost=cost[key]?cost[key].price:0;
+    return {...r,current,lastCost,value:qtyForValue*lastCost};
+  });
+}
+
+/* ================= APP ================= */
+function App(){
+  const speech=useSpeech();
+  const [screen,setScreen]=useState(()=> load("hishab:account",null)?"app":"splash");
+  const [tab,setTab]=useState("dashboard");
+  const [menuOpen,setMenuOpen]=useState(false);
+  const [searchOpen,setSearchOpen]=useState(false);
+  const [cred,setCred]=useState({username:"",password:""});
+  const [account,setAccount]=useState(()=> load("hishab:account",{shopName:"",ownerName:"",location:"",mobile:""}));
+  const [data,setData]=useState(()=> ({...EMPTY,...load("hishab:data",EMPTY)}));
+
+  useEffect(()=>{ localStorage.setItem("hishab:data",JSON.stringify(data)); },[data]);
+  useEffect(()=>{ if(account.shopName) localStorage.setItem("hishab:account",JSON.stringify(account)); },[account]);
+
+  const sum=(a,k="total")=>a.reduce((s,r)=>s+(Number(r[k])||0),0);
+  const totalSales=sum(data.sales), totalReceivables=sum(data.receivables),
+        totalInventories=sum(data.inventories), totalPayables=sum(data.payables),
+        totalExpenses=sum(data.expenses);
+  const profit=totalSales+totalReceivables-totalInventories-totalPayables-totalExpenses;
+  const todaysSales=data.sales.filter(r=>r.date===today()).reduce((s,r)=>s+r.total,0);
+
+  const mostSold=(()=>{ const m={};
+    data.sales.forEach(r=>{const k=(r.productId||"?")+"|"+(r.productName||"");m[k]=(m[k]||0)+(Number(r.quantity)||0);});
+    return Object.entries(m).map(([k,q])=>({id:k.split("|")[0],name:k.split("|")[1],qty:q}))
+      .sort((a,b)=>b.qty-a.qty).slice(0,3);
+  })();
+
+  const stock=buildStock(data);
+  const inventoryValue=stock.reduce((s,r)=>s+r.value,0);
+
+  const push=(key,rec)=>setData(d=>({...d,[key]:[...d[key],rec]}));
+
+  const download=(type,days)=>{
+    const cutoff=new Date(Date.now()-days*86400000).toISOString().slice(0,10);
+    const within=a=>a.filter(r=>r.date>=cutoff);
+    let head=[],rows=[],fname="";
+    if(type==="Current Inventories"){
+      const s=buildStock({
+        inventories:within(data.inventories),payables:within(data.payables),
+        sales:within(data.sales),receivables:within(data.receivables),expenses:[],profitLog:[]
+      });
+      head=["Product ID","Product Name","Stock In","Stock Out","Current Stock","Last Cost","Value"];
+      rows=s.map(r=>[r.id,r.name,r.in,r.out,r.current,r.lastCost,r.value]);
+      fname="current_inventories";
+    } else {
+      const map={Sales:"sales",Inventories:"inventories","A/C Receivables":"receivables","A/C Payables":"payables"};
+      const arr=within(data[map[type]]);
+      const pl=(type==="Inventories"||type==="A/C Payables")?"Cost Price":"Selling Price";
+      head=["Date","Product ID","Product Name","Quantity",pl,"Total"];
+      rows=arr.map(r=>[r.date,r.productId,r.productName,r.quantity,r.price,r.total]);
+      fname=map[type];
+    }
+    const csv=[head,...rows].map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=`${fname}_${days}d_${today()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /* ---- splash ---- */
+  if(screen==="splash"){
+    const icons=["calculator","laptop","table","trending","pen","manager"];
+    return (<Shell><div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"48px 24px"}}>
+      <div style={{textAlign:"center"}}>
+        <h1 style={{fontFamily:"Georgia,serif",fontSize:40,fontWeight:700,color:C.oxblood,letterSpacing:1}}>HishabAI</h1>
+        <p style={{color:C.muted,marginTop:6,letterSpacing:3,fontSize:12,textTransform:"uppercase"}}>Your shop ledger, spoken</p>
+      </div>
+      <div style={{position:"relative",width:260,height:260}}>
+        <div style={{position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${C.brassSoft}`,background:"radial-gradient(circle at 50% 35%,#fff,#FDF6E8)"}}/>
+        <div style={{position:"absolute",inset:26,borderRadius:"50%",border:`1px dashed ${C.brass}`}}/>
+        {icons.map((n,i)=>{const ang=(i/icons.length)*Math.PI*2-Math.PI/2,R=96,cx=130+R*Math.cos(ang),cy=130+R*Math.sin(ang);
+          return <div key={i} style={{position:"absolute",left:cx-24,top:cy-24,width:48,height:48,borderRadius:14,background:"#fff",border:`1px solid ${C.line}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,.06)"}}><Icon name={n} size={22} color={C.oxblood}/></div>;})}
+        <div style={{position:"absolute",left:100,top:100,width:60,height:60,borderRadius:"50%",background:C.oxblood,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"Georgia,serif",fontSize:24,fontWeight:700}}>H</div>
+      </div>
+      <div style={{width:"100%",maxWidth:360}}><PrimaryBtn onClick={()=>setScreen("signup")}>Sign up</PrimaryBtn></div>
+    </div></Shell>);
+  }
+
+  /* ---- signup ---- */
+  if(screen==="signup") return (<Shell>
+    <TopBar onBack={()=>setScreen("splash")} title="Sign up"/>
+    <div style={{padding:24,maxWidth:420,margin:"0 auto"}}><Card>
+      <Field id="u" label="Username" value={cred.username} onChange={v=>setCred({...cred,username:v})} speech={speech}/>
+      <Field id="p" label="Password" value={cred.password} onChange={v=>setCred({...cred,password:v})} speech={speech}/>
+      <PrimaryBtn onClick={()=>{if(!cred.username)return alert("Enter a username.");setScreen("create");}}>Create an account</PrimaryBtn>
+    </Card></div></Shell>);
+
+  /* ---- create ---- */
+  if(screen==="create") return (<Shell>
+    <TopBar onBack={()=>setScreen("signup")} title="Open your shop account"/>
+    <div style={{padding:24,maxWidth:420,margin:"0 auto"}}><Card>
+      <Field id="sn" label="Shop Name" value={account.shopName} onChange={v=>setAccount({...account,shopName:v})} speech={speech}/>
+      <Field id="on" label="Owner Name" value={account.ownerName} onChange={v=>setAccount({...account,ownerName:v})} speech={speech}/>
+      <Field id="loc" label="Location" value={account.location} onChange={v=>setAccount({...account,location:v})} speech={speech}/>
+      <Field id="mob" label="Mobile No." numeric value={account.mobile} onChange={v=>setAccount({...account,mobile:v})} speech={speech}/>
+      <PrimaryBtn onClick={()=>{if(!account.shopName)return alert("Enter your shop name.");setScreen("app");setTab("dashboard");}}>Open account</PrimaryBtn>
+    </Card></div></Shell>);
+
+  /* ---- app ---- */
+  const initial=(account.shopName||"S").trim().charAt(0).toUpperCase();
+  const tabs=[
+    {k:"sales",label:"Sales"},{k:"inventories",label:"Inventories"},{k:"profit",label:"Profit"},
+    {k:"expenses",label:"Expenses"},{k:"receivables",label:"A/C Receivables"},{k:"payables",label:"A/C Payables"},
+  ];
+  return (<Shell>
+    <div style={{background:C.oxblood,color:"#fff",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:20}}>
+      <div className="flex items-center" style={{gap:10}}>
+        <div style={{width:40,height:40,borderRadius:"50%",background:C.brass,color:C.oxbloodDark,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Georgia,serif",fontWeight:700,fontSize:18}}>{initial}</div>
+        <div><div style={{fontWeight:700,fontSize:15,lineHeight:1.1}}>{account.shopName}</div><div style={{fontSize:12,opacity:.85}}>{account.ownerName}</div></div>
+      </div>
+      <div className="flex items-center" style={{gap:6}}>
+        <button onClick={()=>{setSearchOpen(true);setMenuOpen(false);}} style={hBtn}><Icon name="search" size={20}/></button>
+        <button onClick={()=>{setMenuOpen(v=>!v);setSearchOpen(false);}} style={hBtn}><Icon name="menu" size={20}/></button>
+      </div>
+    </div>
+
+    {menuOpen && <div style={{background:"#fff",borderBottom:`1px solid ${C.line}`,padding:8}}>
+      <button onClick={()=>{setTab("reconciliation");setMenuOpen(false);}} className="w-full flex items-center rounded-lg px-3 py-2" style={{gap:10,color:C.ink}}>
+        <Icon name="scale" size={18} color={C.oxblood}/> Reconciliation
+      </button>
+    </div>}
+
+    <div className="overflow-x-auto" style={{background:"#fff",borderBottom:`1px solid ${C.line}`,padding:"10px 12px",display:"flex",gap:8,whiteSpace:"nowrap"}}>
+      <Chip active={tab==="dashboard"} onClick={()=>setTab("dashboard")}>Dashboard</Chip>
+      {tabs.map(t=><Chip key={t.k} active={tab===t.k} onClick={()=>setTab(t.k)}>{t.label}</Chip>)}
+    </div>
+
+    <div style={{padding:16,maxWidth:640,margin:"0 auto"}}>
+      {tab==="dashboard" && <div style={{display:"grid",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Stat label="Today's Sales" value={money(todaysSales)} tint={C.oxblood}/>
+          <Stat label="Profit" value={money(profit)} tint={profit>=0?C.good:C.bad}/>
+          <Stat label="Current Inventory (value)" value={money(inventoryValue)} tint={C.brass}/>
+          <Stat label="Total Sales (all time)" value={money(totalSales)} tint={C.ink}/>
+        </div>
+        <Card>
+          <h3 style={{fontSize:14,fontWeight:700,color:C.ink,marginBottom:8}}>Most sold items</h3>
+          {mostSold.length? mostSold.map((m,i)=>(
+            <div key={i} className="flex items-center justify-between" style={{padding:"8px 0",borderBottom:i<mostSold.length-1?`1px solid ${C.line}`:"none"}}>
+              <div><div style={{fontWeight:600,color:C.ink}}>{m.name||"—"}</div><div style={{fontSize:12,color:C.muted}}>ID: {m.id}</div></div>
+              <div style={{fontWeight:700,color:C.oxblood}}>{m.qty} sold</div>
+            </div>)) : <p style={{color:C.muted,fontSize:14}}>No sales recorded yet.</p>}
+        </Card>
+      </div>}
+
+      {tab==="sales" && <Section title="Sales" desc="Total = Quantity × Selling Price (auto, editable).">
+        <LedgerForm priceLabel="Selling Price" totalLabel="Total Sales" accent={C.oxblood} speech={speech} onSave={r=>push("sales",r)}/>
+        <RecordsTable rows={data.sales} cols={saleCols("Selling Price")}/></Section>}
+      {tab==="inventories" && <Section title="Inventories" desc="Stock bought. Total = Quantity × Cost Price (auto, editable).">
+        <LedgerForm priceLabel="Cost Price" totalLabel="Total Inventories" accent={C.brass} speech={speech} onSave={r=>push("inventories",r)}/>
+        <RecordsTable rows={data.inventories} cols={saleCols("Cost Price")}/></Section>}
+      {tab==="receivables" && <Section title="A/C Receivables" desc="Sold on credit. Total = Quantity × Selling Price (auto, editable).">
+        <LedgerForm priceLabel="Selling Price" totalLabel="Total Receivables" accent={C.good} speech={speech} onSave={r=>push("receivables",r)}/>
+        <RecordsTable rows={data.receivables} cols={saleCols("Selling Price")}/></Section>}
+      {tab==="payables" && <Section title="A/C Payables" desc="Bought on credit. Total = Quantity × Cost Price (auto, editable).">
+        <LedgerForm priceLabel="Cost Price" totalLabel="Total Payables" accent={C.bad} speech={speech} onSave={r=>push("payables",r)}/>
+        <RecordsTable rows={data.payables} cols={saleCols("Cost Price")}/></Section>}
+      {tab==="expenses" && <Section title="Expenses" desc="Record a shop expense.">
+        <ExpenseForm speech={speech} onSave={r=>push("expenses",r)}/>
+        <RecordsTable rows={data.expenses} cols={[{key:"date",label:"Date"},{key:"type",label:"Type"},{key:"total",label:"Total",fmt:money}]}/></Section>}
+
+      {tab==="profit" && <Section title="Profit" desc="Total Sales + Receivables − Inventories − Payables − Expenses.">
+        <Card>
+          <Row l="Total Sales" v={money(totalSales)}/>
+          <Row l="+ A/C Receivables" v={money(totalReceivables)}/>
+          <Row l="− Total Inventories" v={money(totalInventories)}/>
+          <Row l="− A/C Payables" v={money(totalPayables)}/>
+          <Row l="− Expenses" v={money(totalExpenses)} last/>
+          <div className="flex items-center justify-between" style={{marginTop:10,paddingTop:10,borderTop:`2px solid ${C.oxblood}`}}>
+            <span style={{fontWeight:700,color:C.ink}}>Profit</span>
+            <span style={{fontWeight:800,fontSize:20,color:profit>=0?C.good:C.bad}}>{money(profit)}</span>
+          </div>
+        </Card>
+        <div style={{marginTop:12}}><PrimaryBtn onClick={()=>{push("profitLog",{date:today(),total:profit});alert("Profit snapshot saved.");}}><Icon name="save" size={18}/> Save profit snapshot</PrimaryBtn></div>
+        <RecordsTable rows={data.profitLog} cols={[{key:"date",label:"Date"},{key:"total",label:"Profit",fmt:money}]}/></Section>}
+
+      {tab==="reconciliation" && <Section title="Reconciliation" desc="Current stock = (Inventories + Payables) − (Sales + Receivables). Value = last cost × stock (min 0).">
+        {stock.length? <div className="overflow-x-auto">
+          <table className="w-full" style={{borderCollapse:"collapse",fontSize:13}}>
+            <thead><tr>{["Product ID","Name","In","Out","Current","Last Cost","Value"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 10px",color:C.muted,borderBottom:`1px solid ${C.line}`,fontWeight:600}}>{h}</th>)}</tr></thead>
+            <tbody>{stock.map((r,i)=><tr key={i}>
+              <td style={td}>{r.id}</td><td style={td}>{r.name}</td><td style={td}>{r.in}</td><td style={td}>{r.out}</td>
+              <td style={{...td,fontWeight:700,color:r.current<0?C.bad:C.good}}>{r.current}</td>
+              <td style={td}>{money(r.lastCost)}</td><td style={{...td,fontWeight:600}}>{money(r.value)}</td>
+            </tr>)}</tbody>
+            <tfoot><tr><td colSpan="6" style={{...td,fontWeight:700,textAlign:"right"}}>Total inventory value</td><td style={{...td,fontWeight:800,color:C.brass}}>{money(inventoryValue)}</td></tr></tfoot>
+          </table></div> : <p style={{color:C.muted,fontSize:14}}>No stock movements yet.</p>}
+      </Section>}
+    </div>
+
+    {searchOpen && <ReportSheet onClose={()=>setSearchOpen(false)} onDownload={download}/>}
+  </Shell>);
+}
+
+/* ---------- shared ---------- */
+function Shell({children}){return <div style={{minHeight:"100vh",background:C.paper,color:C.ink,fontFamily:"system-ui,-apple-system,Segoe UI,Roboto,sans-serif"}}>{children}</div>;}
+function TopBar({onBack,title}){return <div style={{background:C.oxblood,color:"#fff",padding:"14px 16px",display:"flex",alignItems:"center",gap:10}}>
+  <button onClick={onBack} style={hBtn}><Icon name="back" size={20}/></button><span style={{fontWeight:700}}>{title}</span></div>;}
+function Chip({children,active,onClick}){return <button onClick={onClick} style={{padding:"7px 14px",borderRadius:999,fontSize:13,fontWeight:600,whiteSpace:"nowrap",cursor:"pointer",background:active?C.oxblood:"#fff",color:active?"#fff":C.ink,border:`1px solid ${active?C.oxblood:C.line}`}}>{children}</button>;}
+function Stat({label,value,tint}){return <div className="rounded-2xl p-4" style={{background:"#fff",border:`1px solid ${C.line}`}}>
+  <div style={{fontSize:12,color:C.muted}}>{label}</div><div style={{fontSize:22,fontWeight:800,color:tint,marginTop:4}}>{value}</div></div>;}
+function Section({title,desc,children}){return <div>
+  <h2 style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.oxblood}}>{title}</h2>
+  {desc&&<p style={{color:C.muted,fontSize:13,marginTop:2,marginBottom:14}}>{desc}</p>}<Card>{children}</Card></div>;}
+function Row({l,v,last}){return <div className="flex items-center justify-between" style={{padding:"6px 0",borderBottom:last?"none":`1px solid ${C.line}`}}><span style={{color:C.ink}}>{l}</span><span style={{fontWeight:600,color:C.ink}}>{v}</span></div>;}
+const saleCols=(pl)=>[{key:"date",label:"Date"},{key:"productId",label:"ID"},{key:"productName",label:"Name"},{key:"quantity",label:"Qty"},{key:"price",label:pl,fmt:money},{key:"total",label:"Total",fmt:money}];
+
+function ReportSheet({onClose,onDownload}){
+  const types=["Sales","Inventories","A/C Receivables","A/C Payables","Current Inventories"];
+  const [sel,setSel]=useState(null),[days,setDays]=useState("30");
+  return (<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:40}} onClick={onClose}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"#fff",width:"100%",maxWidth:640,borderTopLeftRadius:20,borderTopRightRadius:20,padding:20,maxHeight:"85vh",overflowY:"auto"}}>
+      <div className="flex items-center justify-between" style={{marginBottom:6}}>
+        <h3 style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.oxblood}}>Download reports</h3>
+        <button onClick={onClose} style={{...hBtn,background:"#F0E9DC",color:C.ink}}><Icon name="x" size={18}/></button>
+      </div>
+      <p style={{color:C.muted,fontSize:13,marginBottom:12}}>Pick a report, set how many days back, then download a dated CSV.</p>
+      <div style={{display:"grid",gap:8}}>
+        {types.map(t=><button key={t} onClick={()=>setSel(t)} className="flex items-center justify-between rounded-xl px-4 py-3" style={{border:`1px solid ${sel===t?C.oxblood:C.line}`,background:sel===t?"#FFF7F3":"#fff",color:C.ink,fontWeight:600}}>{t}{sel===t&&<span style={{color:C.oxblood,fontSize:12}}>selected</span>}</button>)}
+      </div>
+      {sel && <div style={{marginTop:16}}>
+        <label style={{fontSize:13,fontWeight:600,color:C.ink}}>How many days back?</label>
+        <input value={days} inputMode="numeric" onChange={e=>setDays(e.target.value.replace(/[^\d]/g,""))} className="w-full rounded-lg px-3 py-2 mt-1" style={{border:`1px solid ${C.line}`}}/>
+        <div className="flex" style={{gap:8,marginTop:10}}>{[7,30,90,365].map(d=><Chip key={d} active={days===String(d)} onClick={()=>setDays(String(d))}>{d}d</Chip>)}</div>
+        <div style={{marginTop:14}}><PrimaryBtn onClick={()=>onDownload(sel,Math.max(1,Number(days)||30))}><Icon name="download" size={18}/> Download {sel} · last {days||30} days</PrimaryBtn></div>
+      </div>}
+    </div></div>);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
